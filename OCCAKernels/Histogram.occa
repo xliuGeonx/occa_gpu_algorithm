@@ -1,0 +1,38 @@
+#include <iostream>
+
+//-------------
+//-----Not finished
+//--------------
+occaKernel void Simple_histogram 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict Input,
+	occaPointer int * occaRestrict Output
+	)
+{
+	occaParallelFor0
+	
+	occaShared int temp[bDIM];
+	
+	occaOuterFor0
+	{				
+				
+		const int bid = occaOuterId0;
+				
+		const int GB = bDIM * gDIM;
+		
+		occaInnerFor0
+		{
+			const int Lid = occaInnerId0;
+			int tid = Lid + bid * bDIM;
+			
+			while (tid < N)
+			{
+				occaAtomicAdd(&temp[Lid],1);
+				Output[tid] = temp[Lid];
+				tid += GB;
+			}
+			
+		}		
+	}
+}

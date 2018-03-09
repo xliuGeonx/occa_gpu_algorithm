@@ -1,0 +1,84 @@
+#include <iostream>
+#include <math.h>
+
+//--------------------------------------------------------------
+occaKernel void Compact_bool
+	(
+	occaKernelInfoArg,
+	occaPointer const int * occaRestrict filter,
+	const int occaVariable filter_size,
+	occaPointer int * occaRestrict bool_vec
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int bid = occaOuterId0;				
+		
+		occaInnerFor0
+		{
+			const int Lid = occaInnerId0;
+			const int Gid = Lid + bid * bDIM;
+			int tid = Gid;
+			//printf("filter[%d]=%d\n", tid, filter[tid]);
+			
+			bool_vec[tid] = 0;
+			occaBarrier(occaLocalMemFence);
+			
+			while (tid < filter_size)
+			{			
+				bool_vec[filter[tid]] = 1;
+				tid += gDIM*bDIM;
+			}
+			
+			//printf("bool_vec[%d]=%d\n", Gid, bool_vec[Gid]);
+		}
+		
+	}
+
+}
+
+
+//------------------------------------------------------------------
+occaKernel void Compact_map
+	(
+	occaKernelInfoArg,
+	occaPointer const int * occaRestrict input,
+	occaPointer const int * occaRestrict bool_vec,
+	occaPointer const int * occaRestrict address,
+	occaPointer int * occaRestrict output
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int bid = occaOuterId0;				
+		
+		occaInnerFor0
+		{
+			const int Lid = occaInnerId0;
+			const int Gid = Lid + bid * bDIM;
+			//int tid = Gid;
+			//printf("filter[%d]=%d\n", tid, filter[tid]);
+			
+			if (bool_vec[Gid] == 1 && Gid < N)
+			{			
+				
+					output[address[Gid]-1] = input[Gid];
+				//if (filter[Gid] == 14)
+					//printf("address[%d]=%d, input[%d]=%d\n", filter[Gid], address[filter[Gid]], filter[Gid], input[filter[Gid]]);
+			}
+			
+		}
+		
+	}
+
+}
+
+

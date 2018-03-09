@@ -1,0 +1,239 @@
+#include <iostream>
+occaKernel void inner_product_ReduceDivergent 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict a,
+	occaPointer const int * occaRestrict b,
+	occaPointer int * occaRestrict product
+	)
+{
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int blockID_x = occaOuterId0;
+				
+		const int GB = bDim * gDim;
+		occaShared int cache[bDim];
+		
+		occaInnerFor0
+		{
+			const int threadId_x = occaInnerId0;
+			int tid = threadId_x + blockID_x * bDim;
+			int temp = 0;
+			
+			while (tid < N)
+			{
+				temp += a[tid] * b[tid];
+				tid += GB;
+			}
+			
+			cache[threadId_x] = temp;
+			//printf("cache[%d]= %d; ", threadId_x, cache[threadId_x]);
+			occaBarrier(occaLocalMemFence);
+			
+			//printf("\n");
+			
+			for (int s = 1; s < bDim; s*=2)
+			{
+				if (threadId_x%(2*s) == 0)
+				{
+					cache[threadId_x] += cache[threadId_x+s];
+				}
+				//printf("cache[%d]= %d; ", threadId_x, cache[threadId_x]);
+				occaBarrier(occaLocalMemFence);
+			}
+			
+			if (threadId_x ==0) 
+			{
+				product[blockID_x] = cache[0];
+			}
+		}		
+	}
+}
+
+
+//-------------------------------------------------------
+
+occaKernel void inner_product_ReduceNoDivergent 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict a,
+	occaPointer const int * occaRestrict b,
+	occaPointer int * occaRestrict product
+	)
+{
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int blockID_x = occaOuterId0;
+				
+		const int GB = bDim * gDim;
+		occaShared int cache[bDim];
+		
+		occaInnerFor0
+		{
+			const int threadId_x = occaInnerId0;
+			int tid = threadId_x + blockID_x * bDim;
+			int temp = 0;
+			
+			while (tid < N)
+			{
+				temp += a[tid] * b[tid];
+				tid += GB;
+			}
+			
+			cache[threadId_x] = temp;
+			//printf("cache[%d]= %d; ", threadId_x, cache[threadId_x]);
+			occaBarrier(occaLocalMemFence);
+			
+			//printf("\n");
+			
+			for (int s = 1; s < bDim; s*=2)
+			{
+				int ind = 2 * s *threadId_x;
+				if (ind < bDim)
+				{
+					cache[ind] += cache[ind+s];
+				}
+				//printf("s= %d; cache[%d]= %d; ", s, ind, cache[ind]);
+				occaBarrier(occaLocalMemFence);
+			}
+			
+			if (threadId_x ==0) 
+			{
+				product[blockID_x] = cache[0];
+			}
+		}		
+	}
+}
+
+
+//-------------------------------------------------------
+
+occaKernel void inner_product_ReduceSequential 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict a,
+	occaPointer const int * occaRestrict b,
+	occaPointer int * occaRestrict product
+	)
+{
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int blockID_x = occaOuterId0;
+				
+		const int GB = bDim * gDim;
+		occaShared int cache[bDim];
+		
+		occaInnerFor0
+		{
+			const int threadId_x = occaInnerId0;
+			int tid = threadId_x + blockID_x * bDim;
+			int temp = 0;
+			
+			while (tid < N)
+			{
+				temp += a[tid] * b[tid];
+				tid += GB;
+			}
+			
+			cache[threadId_x] = temp;
+			//printf("cache[%d]= %d; ", threadId_x, cache[threadId_x]);
+			occaBarrier(occaLocalMemFence);
+			
+			//printf("\n");
+			
+			for (int s = bDim/2; s >0 ; s/=2)
+			{
+				if (threadId_x < s)
+				{
+					cache[threadId_x] += cache[threadId_x+s];
+				}
+				//printf("s= %d; cache[%d]= %d; ", s, ind, cache[ind]);
+				occaBarrier(occaLocalMemFence);
+			}
+			
+			if (threadId_x ==0) 
+			{
+				product[blockID_x] = cache[0];
+			}
+		}		
+	}
+}
+
+//--------------------------------------------------------------
+occaKernel void inner_product_ReduceSequentialUnroll 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict a,
+	occaPointer const int * occaRestrict b,
+	occaPointer int * occaRestrict product
+	)
+{
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int blockID_x = occaOuterId0;
+				
+		const int GB = bDim * gDim;
+		occaShared int cache[bDim];
+		
+		occaInnerFor0
+		{
+			const int threadId_x = occaInnerId0;
+			int tid = threadId_x + blockID_x * bDim;
+			int temp = 0;
+			
+			while (tid < N)
+			{
+				temp += a[tid] * b[tid];
+				tid += GB;
+			}
+			
+			cache[threadId_x] = temp;
+			//printf("cache[%d]= %d; ", threadId_x, cache[threadId_x]);
+			occaBarrier(occaLocalMemFence);
+			
+			//printf("\n");
+			
+			for (int s = bDim/2; s > 32 ; s/=2)
+			{
+				if (threadId_x < s)
+				{
+					cache[threadId_x] += cache[threadId_x+s];
+				}
+				//printf("s= %d; cache[%d]= %d; ", s, threadId_x, cache[threadId_x]);
+				occaBarrier(occaLocalMemFence);
+			}
+			if (threadId_x < 32)
+			{
+				cache[threadId_x] += cache[threadId_x + 32];
+				occaBarrier(occaLocalMemFence);
+				cache[threadId_x] += cache[threadId_x + 16];
+				occaBarrier(occaLocalMemFence);
+				cache[threadId_x] += cache[threadId_x + 8];
+				occaBarrier(occaLocalMemFence);
+				cache[threadId_x] += cache[threadId_x + 4];
+				occaBarrier(occaLocalMemFence);
+				cache[threadId_x] += cache[threadId_x + 2];
+				occaBarrier(occaLocalMemFence);
+				cache[threadId_x] += cache[threadId_x + 1];
+				//printf("cache[%d]= %d; ", threadId_x, cache[threadId_x]);
+			}
+			
+			if (threadId_x ==0) 
+			{
+				product[blockID_x] = cache[0];
+			}
+		}		
+	}
+}

@@ -1,0 +1,318 @@
+#include <iostream>
+#include <math.h>
+
+//--------------------------------------------------------------
+occaKernel void BSort_simple
+	(
+	occaKernelInfoArg,
+	occaPointer datatype * occaRestrict arry_simple
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const unsigned int bid = occaOuterId0;
+		//const unsigned int gDIM = occaOuterDim0;
+		occaShared datatype temp_arry[bDIM];
+		
+		occaInnerFor0
+		{
+			const unsigned int Lid = occaInnerId0;
+			const unsigned int Gid = Lid + bid * bDIM;
+			const unsigned int tid = Gid+1;
+			unsigned int Gid_comp;
+			datatype swap_temp;
+			temp_arry[Gid] = arry_simple[Gid];
+			occaBarrier(occaLocalMemFence);
+			
+			for (unsigned int i = 2; i <= bDIM; i<<=1)
+			{
+				for (unsigned int j = (i>>1); j > 0;  j>>=1)
+				{
+					Gid_comp = Gid + j;
+					
+					if (Gid_comp < bDIM)
+					{
+						if ( (tid%(2*j))>0 && (tid%(2*j))<=j )
+						{
+							if ( (tid&i) == 0)
+							{
+								if (temp_arry[Gid_comp] < temp_arry[Gid])
+								{
+									swap_temp = temp_arry[Gid_comp];
+									temp_arry[Gid_comp] = temp_arry[Gid];
+									temp_arry[Gid] = swap_temp;
+								}
+							}
+							else
+							{
+								if (temp_arry[Gid_comp] > temp_arry[Gid])
+								{
+									swap_temp = temp_arry[Gid_comp];
+									temp_arry[Gid_comp] = temp_arry[Gid];
+									temp_arry[Gid] = swap_temp;
+								}
+							//printf("i=%d, j=%d, temp_arry[%d] = %f\n", i, j, Gid, temp_arry[Gid]);
+							}
+						}									
+					}
+					occaBarrier(occaLocalMemFence);		
+					//printf("i=%d, j=%d, temp_arry[%d] = %f\n", i, j, Gid, temp_arry[Gid]);				
+				}
+			}
+			
+			arry_simple[Gid] = temp_arry[Gid];
+		}
+		
+	}
+
+}
+
+
+//--------------------------------------------------------------
+occaKernel void BSort_mblocks_p1
+	(
+	occaKernelInfoArg,
+	occaPointer datatype* occaRestrict arry_simple
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{	
+		const unsigned int bid = occaOuterId0;
+		//const unsigned int gDIM = occaOuterDim0;
+		occaShared datatype temp_arry[bDIM];
+					
+		occaInnerFor0
+		{
+			const unsigned int Lid = occaInnerId0;
+			const unsigned int Gid = Lid + bid * bDIM;
+			const unsigned int tid = Lid+1;
+			unsigned int Lid_comp;
+			datatype swap_temp;
+			temp_arry[Lid] = arry_simple[Gid];
+			occaBarrier(occaLocalMemFence);
+			
+				for (unsigned int i = 2; i <= bDIM; i<<=1)
+				{
+					for (unsigned int j = (i>>1); j > 0;  j>>=1)
+					{
+						Lid_comp = Lid + j;
+					
+						if (Lid_comp < bDIM)
+						{
+							if ( (tid%(2*j))>0 && (tid%(2*j))<=j )
+							{
+								if ( (tid&i) == 0)
+								{									
+									if (bid%2==0)
+									{
+										if (temp_arry[Lid_comp] < temp_arry[Lid])
+										{
+											swap_temp = temp_arry[Lid_comp];
+											temp_arry[Lid_comp] = temp_arry[Lid];
+											temp_arry[Lid] = swap_temp;
+										}
+									}
+									else
+									{
+										if (temp_arry[Lid_comp] > temp_arry[Lid])
+										{
+											swap_temp = temp_arry[Lid_comp];
+											temp_arry[Lid_comp] = temp_arry[Lid];
+											temp_arry[Lid] = swap_temp;
+										}
+									}
+								}
+								else
+								{	
+									if (bid%2==0)
+									{
+										if (temp_arry[Lid_comp] > temp_arry[Lid])
+										{
+											swap_temp = temp_arry[Lid_comp];
+											temp_arry[Lid_comp] = temp_arry[Lid];
+											temp_arry[Lid] = swap_temp;
+										}
+									}
+									else
+									{
+										if (temp_arry[Lid_comp] < temp_arry[Lid])
+										{
+											swap_temp = temp_arry[Lid_comp];
+											temp_arry[Lid_comp] = temp_arry[Lid];
+											temp_arry[Lid] = swap_temp;
+										}
+									}
+								}	
+							}									
+						}
+						occaBarrier(occaLocalMemFence);		
+						
+					}
+				}
+			arry_simple[Gid] = temp_arry[Lid];
+		}	
+	}
+
+};
+
+
+//------------------------------------------------------------------
+occaKernel void BSort_mblocks_p2
+	(
+	occaKernelInfoArg,
+	const unsigned int occaVariable i,
+	const unsigned int occaVariable j,
+	occaPointer datatype * occaRestrict arry_simple
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{	
+		const unsigned int bid = occaOuterId0;
+		const unsigned int gDIM = occaOuterDim0;
+					
+		occaInnerFor0
+		{
+			const unsigned int Lid = occaInnerId0;
+			const unsigned int Gid = Lid + bid * bDIM;
+			const unsigned int tid = Gid+1;
+			unsigned int Gid_comp;
+			datatype swap_temp;
+			
+			Gid_comp = Gid + j;
+			//printf("i=%d; j=%d\n", i, j);
+			if (Gid_comp < bDIM*gDIM)
+			{
+				if ( (tid%(2*j))>0 && (tid%(2*j))<=j )
+				{
+					if ( (tid&i) == 0)
+					{									
+						if (arry_simple[Gid_comp] < arry_simple[Gid])
+						{
+							swap_temp = arry_simple[Gid_comp];
+							arry_simple[Gid_comp] = arry_simple[Gid];
+							arry_simple[Gid] = swap_temp;
+						}
+					}
+					else
+					{										
+						if (arry_simple[Gid_comp] > arry_simple[Gid])
+						{
+							swap_temp = arry_simple[Gid_comp];
+							arry_simple[Gid_comp] = arry_simple[Gid];
+							arry_simple[Gid] = swap_temp;
+						}
+					}	
+				}									
+			}
+			//printf("i=%d, j=%d, arry_simple[%d] = %f\n", i, j, Gid, arry_simple[Gid]);
+		}
+		
+	}
+
+};
+
+//---------------------------------------------
+
+occaKernel void BSort_random_p1
+	(
+	occaKernelInfoArg,
+	const unsigned int occaVariable N, 
+	const unsigned int occaVariable size,
+	occaPointer const datatype * occaRestrict arry_original,
+	occaPointer datatype * occaRestrict arry_L,
+	occaPointer datatype * occaRestrict arry_R
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{	
+		const unsigned int bid = occaOuterId0;
+		const unsigned int gDIM = occaOuterDim0;
+		const unsigned int GB = bDIM * gDIM;
+					
+		occaInnerFor0
+		{
+			const unsigned int Lid = occaInnerId0;
+			const unsigned int Gid = Lid + bid * bDIM;
+			unsigned int tid = Gid;
+			
+			while (tid < size)
+			{
+				arry_L[tid] = arry_original[tid];
+				
+				if (tid + size >= N)
+				{
+					arry_R[tid] = tiny;
+				}
+				else
+				{
+					arry_R[tid] = arry_original[tid+size];
+				}
+				tid += GB;
+			}
+			
+			
+		}
+		
+	}
+
+};
+
+//-----------------------------------------------------------
+occaKernel void BSort_random_p2
+	(
+	occaKernelInfoArg,
+	const unsigned int occaVariable N, 
+	const unsigned int occaVariable size,
+	occaPointer datatype * occaRestrict arry_L,
+	occaPointer datatype * occaRestrict arry_R
+	)
+{
+
+	occaParallelFor0
+	
+	occaOuterFor0
+	{	
+		const unsigned int bid = occaOuterId0;
+		const unsigned int gDIM = occaOuterDim0;
+		const unsigned int GB = bDIM * gDIM;
+					
+		occaInnerFor0
+		{
+			const unsigned int Lid = occaInnerId0;
+			const unsigned int Gid = Lid + bid * bDIM;
+			unsigned int tid = Gid;
+			const unsigned int d = N - size;
+			datatype temp_swap;
+			
+			while (tid < d)
+			{
+				if (arry_L[size-tid-1] > arry_R[size-d+tid])
+				{
+					temp_swap = arry_L[size-tid-1];
+					arry_L[size-tid-1] = arry_R[size-d+tid];
+					arry_R[size-d+tid] = temp_swap;
+				}
+				
+				tid += GB;
+			}
+			
+			
+		}
+		
+	}
+
+};
+
