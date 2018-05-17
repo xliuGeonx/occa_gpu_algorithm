@@ -101,6 +101,7 @@ ENDIF()
 #-----------
 
 LIST (APPEND Tests_dir GeneralTools SimpleKernel Reduce_InnerProduct Scan_add Histogram Compact Compact_inverse Sort_Bitonic Mthreads)
+LIST (APPEND Tests_dir Mthreads_Serial Mprocess)
 FOREACH (T_dir ${Tests_dir})
 	ADD_SUBDIRECTORY( ${T_dir})
 ENDFOREACH()

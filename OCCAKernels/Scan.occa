@@ -243,7 +243,7 @@ occaKernel void Scan_add_HS
 				
 		const int bid = occaOuterId0;
 				
-		//const int GB = bDIM * gDIM;
+		const int GB = bDIM * gDIM;
 		occaShared int temp[bDIM]; 
 		occaShared int temp2[bDIM];
 		

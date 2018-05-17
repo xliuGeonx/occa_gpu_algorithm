@@ -1,0 +1,136 @@
+#include <iostream>
+#include <math.h>
+
+
+occaKernel void Scan_add_Blelloch_p1 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict Input,
+	occaPointer int * occaRestrict Output,
+	occaPointer int * occaRestrict exchange
+	)
+{
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+		const int bid = occaOuterId0;
+		//const int GB = bDIM * gDIM;
+		occaShared int temp[bDIM];
+		occaShared int temp2[bDIM];
+		
+		occaInnerFor0
+		{
+			const int last_id = ( (N > (bid*bDIM + bDIM)) ? bDIM : N - bid*bDIM );
+			const int Lid = occaInnerId0;
+			const int Gid = Lid + bid * bDIM;
+			int offset = 1;
+			
+			if(Lid < last_id)
+				temp[Lid] = Input[Gid];
+			else
+				temp[Lid] = 0;
+				
+			occaBarrier(occaLocalMemFence);
+			
+			
+			//-------reduce-----------------
+			
+			
+			for (int d = bDIM/2; d > 0; d /= 2)
+			{
+				if (Lid < d)
+				{
+					int ai = offset * (2 * Lid +1) -1;
+					int bi = offset * (2 * Lid +2) -1;
+					
+					//printf("d=%d, temp[%d](%d) + temp[%d](%d) = temp[%d](%d)\n", d, bi, temp[bi], ai, temp[ai], bi, temp[bi]+temp[ai]);
+					
+					temp[bi] += temp[ai];
+				}
+				offset *= 2;
+				occaBarrier(occaLocalMemFence);	
+				temp2[Lid] = temp[Lid];
+				occaBarrier(occaLocalMemFence);	
+			}
+			
+			const int last = temp2[bDIM-1];
+			//printf("offset=%d\n",offset);
+			temp[bDIM-1] = 0;
+			occaBarrier(occaLocalMemFence);	
+			
+			for (int d = 1; d < bDIM; d*=2)
+			{
+				offset/=2;
+				
+				if (Lid < d)
+				{
+					int ai = offset * (2*Lid + 1) -1;
+					int bi = offset * (2*Lid + 2) -1;
+					
+					int swap = temp[ai];
+					temp[ai] = temp[bi];
+					temp[bi] += swap;
+				}
+
+				occaBarrier(occaLocalMemFence);
+			}
+			
+			if (Lid < bDIM-1)
+			{
+				Output[Gid] = temp[Lid+1];
+			}
+			else
+			{
+				Output[Gid] = last;
+			}
+			
+			exchange[bid] = last;
+			
+		}
+		
+	}
+}
+
+
+occaKernel void Scan_add_Blelloch_p2 
+	(
+	occaKernelInfoArg, 
+	occaPointer const int * occaRestrict exchange,
+	occaPointer int * occaRestrict Output
+	)
+{
+	occaParallelFor0
+	
+	occaOuterFor0
+	{				
+				
+		const int bid = occaOuterId0;
+		//const int GB = bDIM * gDIM;
+		occaShared int temp[bDIM];
+		
+		occaInnerFor0
+		{
+			
+			const int Lid = occaInnerId0;
+			const int Gid = Lid + bid * bDIM;
+			
+			temp[Lid] = Output[Gid];
+			occaBarrier(occaLocalMemFence);
+			
+			for (int i = 1; i < gDIM; ++i)
+			{
+				if ( bid >= i )
+				{
+						//printf("b[%d](%d)+=exchange[%d](%d) == %d\n",Gid, temp[Lid],i-1,exchange[i-1], temp[Lid]+exchange[i-1]);
+						
+					temp[Lid] += exchange[i-1];
+				}
+		
+				occaBarrier(occaLocalMemFence);				
+			}
+			
+			Output[Gid] = temp[Lid];	
+		}
+	}
+}
